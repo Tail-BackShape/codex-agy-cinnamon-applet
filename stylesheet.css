@@ -1,0 +1,53 @@
+.codexbar-panel-gauge {
+    width: 28px;
+    height: 16px;
+    margin-left: 3px;
+    margin-right: 1px;
+}
+
+.codexbar-popup-item {
+    padding: 5px 12px;
+}
+
+.codexbar-card,
+.codexbar-row {
+    width: 280px;
+}
+
+.codexbar-title {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.codexbar-subtitle,
+.codexbar-detail {
+    font-size: 12px;
+}
+
+.codexbar-row-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.codexbar-muted {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 11px;
+}
+
+.codexbar-error {
+    color: #ff8f8f;
+}
+
+.codexbar-progress-track {
+    height: 7px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.codexbar-progress-fill {
+    height: 7px;
+    border-radius: 4px;
+    background-color: #42c6a3;
+}

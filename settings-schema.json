@@ -1,0 +1,42 @@
+{
+    "layout": {
+        "type": "layout",
+        "pages": ["general"],
+        "general": {
+            "type": "page",
+            "title": "General",
+            "sections": ["command"]
+        },
+        "command": {
+            "type": "section",
+            "title": "CodexBar",
+            "keys": ["command-path", "provider", "refresh-interval"]
+        }
+    },
+    "command-path": {
+        "type": "entry",
+        "default": "/opt/apps/codexbar/codexbar",
+        "description": "CodexBar command path"
+    },
+    "provider": {
+        "type": "combobox",
+        "default": "codex",
+        "description": "Provider",
+        "options": {
+            "Codex": "codex",
+            "OpenAI": "openai",
+            "Claude": "claude",
+            "Gemini": "gemini",
+            "All": "all"
+        }
+    },
+    "refresh-interval": {
+        "type": "spinbutton",
+        "default": 60,
+        "min": 15,
+        "max": 3600,
+        "step": 15,
+        "units": "seconds",
+        "description": "Refresh interval"
+    }
+}
