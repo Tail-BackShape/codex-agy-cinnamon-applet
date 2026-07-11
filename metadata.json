@@ -1,6 +1,7 @@
 {
     "uuid": "codexbar@local",
     "name": "CodexBar",
+    "version": "0.0.1",
     "description": "Display CodexBar usage information in the Cinnamon panel",
     "icon": "utilities-system-monitor",
     "max-instances": -1

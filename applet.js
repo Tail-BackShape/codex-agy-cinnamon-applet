@@ -11,7 +11,6 @@ const Cairo = imports.cairo;
 const DEFAULT_COMMAND = "/opt/apps/codexbar/codexbar";
 const DEFAULT_PROVIDER = "codex";
 const DEFAULT_REFRESH_SECONDS = 60;
-const BAR_WIDTH = 240;
 const PANEL_GAUGE_WIDTH = 28;
 const PANEL_GAUGE_HEIGHT = 16;
 
@@ -296,14 +295,24 @@ class CodexBarApplet extends Applet.TextIconApplet {
     }
 
     _progressBar(percent) {
-        let clamped = Math.max(0, Math.min(100, Number(percent || 0)));
-        let track = new St.BoxLayout({ style_class: "codexbar-progress-track" });
-        let fillWidth = Math.max(3, Math.round((BAR_WIDTH * clamped) / 100));
-        let fill = new St.Bin({ style_class: "codexbar-progress-fill" });
+        let numericPercent = Number(percent || 0);
+        let clamped = Math.max(0, Math.min(100, numericPercent));
+        if (Math.round(clamped) === 100) {
+            clamped = 100;
+        }
 
-        track.set_width(BAR_WIDTH);
-        fill.set_width(fillWidth);
+        let track = new St.BoxLayout({ style_class: "codexbar-progress-track" });
+        let fill = new St.Bin({ style_class: "codexbar-progress-fill" });
+        let updateFillWidth = function () {
+            let trackWidth = track.get_width();
+            let fillWidth = Math.round((trackWidth * clamped) / 100);
+
+            fill.set_width(clamped > 0 ? Math.max(3, fillWidth) : 0);
+        };
+
+        track.x_expand = true;
         track.add_actor(fill);
+        track.connect("notify::allocation", updateFillWidth);
         return track;
     }
 

@@ -10,6 +10,13 @@ information when available.
 
 ![CodexBar Cinnamon Applet demo](demo.png)
 
+## Provider Support
+
+The applet is confirmed working with the **Codex** provider. Support for the
+other providers exposed by CodexBar is still considered beta, and feedback from
+testers is welcome. If you try another provider, please report what works, what
+does not, and include a sanitized sample of the JSON output when possible.
+
 ## Requirements
 
 - Linux Mint Cinnamon, or another Cinnamon desktop that supports local applets
