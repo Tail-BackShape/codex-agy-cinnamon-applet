@@ -86,7 +86,7 @@ class CodexBarApplet extends Applet.TextIconApplet {
 
         let model = this._modelFromRecords(this.records);
         this.lastError = model.error;
-        this._setPanelGauge(model.primaryPercent, model.error ? "error" : "normal");
+        this._setPanelGauge(model.gaugePercent, model.error ? "error" : "normal");
         this.set_applet_tooltip(model.tooltip);
         this._buildMenu();
     }
@@ -362,7 +362,7 @@ class CodexBarApplet extends Applet.TextIconApplet {
                 title: "Codex",
                 subtitle: "Waiting for data",
                 headerRight: "",
-                primaryPercent: 0,
+                gaugePercent: 0,
                 tooltip: "CodexBar: waiting for data",
                 error: null,
                 rows: [],
@@ -377,7 +377,7 @@ class CodexBarApplet extends Applet.TextIconApplet {
                 title: provider,
                 subtitle: source,
                 headerRight: "!",
-                primaryPercent: 100,
+                gaugePercent: 100,
                 tooltip: "CodexBar: " + message,
                 error: message,
                 rows: [],
@@ -386,7 +386,7 @@ class CodexBarApplet extends Applet.TextIconApplet {
             };
         }
 
-        let primaryPercent = this._primaryLimitPercent(record);
+        let gaugePercent = this._gaugeLimitPercent(record);
         let rows = this._usageRows(record);
         let extraUsage = this._extraUsage(record);
         let costLines = this._costLines(record);
@@ -395,7 +395,7 @@ class CodexBarApplet extends Applet.TextIconApplet {
             title: provider,
             subtitle: this.refreshing ? "Refreshing..." : "Updated " + this._relativeUpdated(this.lastUpdated),
             headerRight: this.refreshing ? "" : source,
-            primaryPercent: primaryPercent,
+            gaugePercent: gaugePercent,
             tooltip: this._tooltip(provider, rows, extraUsage),
             error: null,
             rows: rows,
@@ -440,9 +440,15 @@ class CodexBarApplet extends Applet.TextIconApplet {
         return rows;
     }
 
-    _primaryLimitPercent(record) {
+    _gaugeLimitPercent(record) {
         let primary = this._limitWindow(record, "primary");
         let percent = primary ? this._firstNumber(primary, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]) : null;
+        if (percent !== null) {
+            return percent;
+        }
+
+        let secondary = this._limitWindow(record, "secondary");
+        percent = secondary ? this._firstNumber(secondary, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]) : null;
         return percent === null ? 0 : percent;
     }
 
