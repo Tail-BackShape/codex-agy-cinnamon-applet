@@ -1,0 +1,28 @@
+{
+  "provider": "antigravity",
+  "source": "oauth",
+  "usage": {
+    "extraRateWindows": [
+      {
+        "id": "gemini-reset-only",
+        "title": "Gemini Session",
+        "usageKnown": false,
+        "window": {
+          "resetsAt": "2026-07-15T16:00:00Z",
+          "usedPercent": 100,
+          "windowMinutes": 300
+        }
+      },
+      {
+        "id": "placeholder",
+        "title": "Synthetic weekly lane",
+        "window": {
+          "isSyntheticPlaceholder": true,
+          "usedPercent": 0,
+          "windowMinutes": 10080
+        }
+      }
+    ],
+    "updatedAt": "2026-07-15T14:59:03Z"
+  }
+}

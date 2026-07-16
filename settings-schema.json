@@ -1,42 +1,59 @@
 {
-    "layout": {
-        "type": "layout",
-        "pages": ["general"],
-        "general": {
-            "type": "page",
-            "title": "General",
-            "sections": ["command"]
-        },
-        "command": {
-            "type": "section",
-            "title": "CodexBar",
-            "keys": ["command-path", "provider", "refresh-interval"]
-        }
+  "layout": {
+    "type": "layout",
+    "pages": ["general"],
+    "general": {
+      "type": "page",
+      "title": "General",
+      "sections": ["providers", "refresh", "display"]
     },
-    "command-path": {
-        "type": "entry",
-        "default": "/opt/apps/codexbar/codexbar",
-        "description": "CodexBar command path"
+    "providers": {
+      "type": "section",
+      "title": "Providers",
+      "keys": ["command-path", "enable-codex", "enable-antigravity"]
     },
-    "provider": {
-        "type": "combobox",
-        "default": "codex",
-        "description": "Provider",
-        "options": {
-            "Codex": "codex",
-            "OpenAI": "openai",
-            "Claude": "claude",
-            "Gemini": "gemini",
-            "All": "all"
-        }
+    "refresh": {
+      "type": "section",
+      "title": "Refresh",
+      "keys": ["refresh-interval"]
     },
-    "refresh-interval": {
-        "type": "spinbutton",
-        "default": 60,
-        "min": 15,
-        "max": 3600,
-        "step": 15,
-        "units": "seconds",
-        "description": "Refresh interval"
+    "display": {
+      "type": "section",
+      "title": "Display",
+      "keys": ["display-mode"]
     }
+  },
+  "command-path": {
+    "type": "entry",
+    "default": "codexbar",
+    "description": "CodexBar command path"
+  },
+  "enable-codex": {
+    "type": "switch",
+    "default": true,
+    "description": "Show Codex"
+  },
+  "enable-antigravity": {
+    "type": "switch",
+    "default": true,
+    "description": "Show Antigravity"
+  },
+  "refresh-interval": {
+    "type": "spinbutton",
+    "default": 60,
+    "min": 30,
+    "max": 3600,
+    "step": 30,
+    "units": "seconds",
+    "description": "Refresh interval"
+  },
+  "display-mode": {
+    "type": "combobox",
+    "default": "used",
+    "description": "Displayed percentage",
+    "options": {
+      "Used": "used",
+      "Remaining": "remaining"
+    }
+  }
 }

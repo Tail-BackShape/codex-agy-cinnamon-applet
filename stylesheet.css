@@ -1,53 +1,91 @@
-.codexbar-panel-gauge {
-    width: 28px;
-    height: 16px;
-    margin-left: 3px;
-    margin-right: 1px;
+.codex-agy-panel-normal {
+    color: inherit;
 }
 
-.codexbar-popup-item {
-    padding: 5px 12px;
+.codex-agy-panel-warning {
+    color: #f2c14e;
 }
 
-.codexbar-card,
-.codexbar-row {
-    width: 280px;
+.codex-agy-panel-danger,
+.codex-agy-panel-error {
+    color: #ff8f8f;
 }
 
-.codexbar-title {
-    font-size: 18px;
+.codex-agy-panel-unknown {
+    color: inherit;
+}
+
+.codex-agy-popup-item {
+    padding: 6px 12px;
+}
+
+.codex-agy-card {
+    width: 330px;
+}
+
+.codex-agy-title {
+    font-size: 16px;
     font-weight: bold;
 }
 
-.codexbar-subtitle,
-.codexbar-detail {
+.codex-agy-subtitle,
+.codex-agy-detail {
     font-size: 12px;
 }
 
-.codexbar-row-title {
-    font-size: 14px;
+.codex-agy-window {
+    padding-top: 8px;
+}
+
+.codex-agy-window-title {
+    font-size: 13px;
     font-weight: bold;
 }
 
-.codexbar-muted {
+.codex-agy-muted,
+.codex-agy-reset {
     color: rgba(255, 255, 255, 0.62);
     font-size: 11px;
 }
 
-.codexbar-error {
+.codex-agy-error {
     color: #ff8f8f;
+    font-size: 11px;
+    padding-top: 4px;
 }
 
-.codexbar-progress-track {
+.codex-agy-progress-track {
     height: 7px;
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 5px;
+    margin-bottom: 4px;
     border-radius: 4px;
     background-color: rgba(255, 255, 255, 0.14);
 }
 
-.codexbar-progress-fill {
+.codex-agy-progress-fill {
     height: 7px;
     border-radius: 4px;
+}
+
+.codex-agy-progress-normal {
     background-color: #42c6a3;
+}
+
+.codex-agy-progress-warning {
+    background-color: #f2c14e;
+}
+
+.codex-agy-progress-danger {
+    background-color: #ef6461;
+}
+
+.codex-agy-unknown-bar {
+    height: 16px;
+    padding: 3px 6px;
+    margin-top: 5px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.62);
+    background-color: rgba(255, 255, 255, 0.08);
+    font-size: 10px;
 }

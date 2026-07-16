@@ -1,52 +1,60 @@
 const Applet = imports.ui.applet;
+const AppletManager = imports.ui.appletManager;
+const Gio = imports.gi.Gio;
+const GLib = imports.gi.GLib;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const PopupMenu = imports.ui.popupMenu;
 const Settings = imports.ui.settings;
 const St = imports.gi.St;
-const Util = imports.misc.util;
-const AppletManager = imports.ui.appletManager;
-const Cairo = imports.cairo;
 
-const DEFAULT_COMMAND = "/opt/apps/codexbar/codexbar";
-const DEFAULT_PROVIDER = "codex";
-const DEFAULT_REFRESH_SECONDS = 60;
-const PANEL_GAUGE_WIDTH = 28;
-const PANEL_GAUGE_HEIGHT = 16;
-
-class CodexBarApplet extends Applet.TextIconApplet {
+class CodexAgyUsageApplet extends Applet.TextIconApplet {
     constructor(metadata, orientation, panelHeight, instanceId) {
         super(orientation, panelHeight, instanceId);
 
         this.setAllowedLayout(Applet.AllowedLayout.BOTH);
+        this.orientation = orientation;
+        this._destroyed = false;
+        this._refreshTimerId = 0;
+        this._initializingSettings = true;
 
-        this.appletPath = metadata.path || (AppletManager.appletMeta[metadata.uuid] && AppletManager.appletMeta[metadata.uuid].path) || ".";
+        const scopedImports = AppletManager.applets[metadata.uuid];
+        this.Constants = scopedImports.lib.constants;
+        this.Normalize = scopedImports.lib.normalize;
+        this.Normalize.configureConstants(this.Constants);
+        this.Format = scopedImports.lib.usageFormat;
+
+        this.runtime = {};
+        this.Constants.PROVIDER_ORDER.forEach((providerId) => {
+            this.runtime[providerId] = {
+                data: this.Normalize.createProviderState(),
+                refreshing: false,
+                process: null,
+                cancellable: null,
+                timeoutId: 0,
+                requestId: 0,
+                failureRecord: null
+            };
+        });
+
         this.menu = new Applet.AppletPopupMenu(this, orientation);
         this.menuManager = new PopupMenu.PopupMenuManager(this);
         this.menuManager.addMenu(this.menu);
 
-        this.refreshTimerId = 0;
-        this.refreshing = false;
-        this.lastUpdated = null;
-        this.lastError = null;
-        this.records = [];
-        this.panelPercent = 0;
-        this.panelGaugeMode = "loading";
-
-        this.panelGauge = new St.DrawingArea({ style_class: "codexbar-panel-gauge" });
-        this.panelGauge.set_size(PANEL_GAUGE_WIDTH, PANEL_GAUGE_HEIGHT);
-        this.panelGauge.connect("repaint", Lang.bind(this, this._drawPanelGauge));
-        this._layoutBin.set_child(this.panelGauge);
-        this._layoutBin.show();
+        this.hide_applet_icon();
+        this.set_applet_label("C ?  A ?");
 
         this.settings = new Settings.AppletSettings(this, metadata.uuid, instanceId);
-        this.settings.bind("command-path", "commandPath", this._onSettingsChanged);
-        this.settings.bind("provider", "provider", this._onSettingsChanged);
-        this.settings.bind("refresh-interval", "refreshInterval", this._onSettingsChanged);
+        this.settings.bind("command-path", "commandPath", this._onSettingsChanged.bind(this));
+        this.settings.bind("enable-codex", "enableCodex", this._onSettingsChanged.bind(this));
+        this.settings.bind("enable-antigravity", "enableAntigravity", this._onSettingsChanged.bind(this));
+        this.settings.bind("refresh-interval", "refreshInterval", this._onSettingsChanged.bind(this));
+        this.settings.bind("display-mode", "displayMode", this._onSettingsChanged.bind(this));
+        this._initializingSettings = false;
 
-        this._setLoadingState();
-        this._buildMenu();
-        this._refresh();
+        this._applySettings();
+        this._render();
+        this._refreshAll(false);
         this._scheduleRefresh();
     }
 
@@ -55,686 +63,427 @@ class CodexBarApplet extends Applet.TextIconApplet {
         this.menu.toggle();
     }
 
+    on_orientation_changed(orientation) {
+        this.orientation = orientation;
+        this._render();
+    }
+
     on_applet_removed_from_panel() {
+        this._destroyed = true;
         this._clearRefreshTimer();
-        this.settings.finalize();
+        this.Constants.PROVIDER_ORDER.forEach((providerId) => this._cancelProvider(providerId));
+        if (this.settings) this.settings.finalize();
     }
 
     _onSettingsChanged() {
-        this.commandPath = this.commandPath || DEFAULT_COMMAND;
-        this.provider = this.provider || DEFAULT_PROVIDER;
-        this.refreshInterval = Math.max(15, Number(this.refreshInterval || DEFAULT_REFRESH_SECONDS));
-        this._applyIconPreference();
+        if (this._initializingSettings || this._destroyed) return;
+        this._applySettings();
         this._clearRefreshTimer();
-        this._refresh();
+        this._render();
+        this._refreshAll(false);
         this._scheduleRefresh();
     }
 
-    _applyIconPreference() {
-        this.hide_applet_icon();
+    _applySettings() {
+        this.commandPath = String(this.commandPath || this.Constants.DEFAULT_COMMAND).trim() ||
+            this.Constants.DEFAULT_COMMAND;
+        this.refreshInterval = Math.max(
+            this.Constants.MIN_REFRESH_SECONDS,
+            Math.min(this.Constants.MAX_REFRESH_SECONDS, Number(this.refreshInterval) || this.Constants.DEFAULT_REFRESH_SECONDS)
+        );
+        this.displayMode = this.displayMode === "remaining" ? "remaining" : "used";
+        this.enableCodex = this.enableCodex !== false;
+        this.enableAntigravity = this.enableAntigravity !== false;
     }
 
-    _setLoadingState() {
-        this._applyIconPreference();
-        this._setPanelGauge(0, "loading");
-        this.set_applet_tooltip("CodexBar: refreshing");
-    }
-
-    _setRecords(records) {
-        this.records = records || [];
-        this.lastUpdated = new Date();
-
-        let model = this._modelFromRecords(this.records);
-        this.lastError = model.error;
-        this._setPanelGauge(model.gaugePercent, model.error ? "error" : "normal");
-        this.set_applet_tooltip(model.tooltip);
-        this._buildMenu();
-    }
-
-    _setErrorState(message) {
-        this.lastUpdated = new Date();
-        this.lastError = message || "Unknown CodexBar error";
-        this._setPanelGauge(100, "error");
-        this.set_applet_tooltip("CodexBar: " + this.lastError);
-        this._buildMenu();
-    }
-
-    _setPanelGauge(percent, mode) {
-        this.panelPercent = Math.max(0, Math.min(100, Number(percent || 0)));
-        this.panelGaugeMode = mode || "normal";
-        this.panelGauge.queue_repaint();
-    }
-
-    _drawPanelGauge(area) {
-        let cr = area.get_context();
-        let [width, height] = area.get_surface_size();
-        let percent = this.panelGaugeMode === "loading" ? 0 : this.panelPercent;
-        let ratio = Math.max(0, Math.min(1, percent / 100));
-        let cx = width / 2;
-        let cy = height - 2.5;
-        let radius = Math.min(width / 2 - 3, height - 4);
-        let start = Math.PI;
-        let end = Math.PI * 2;
-        let activeEnd = start + (end - start) * ratio;
-
-        cr.setLineCap(Cairo.LineCap.ROUND);
-        cr.setLineWidth(3.2);
-        cr.arc(cx, cy, radius, start, end);
-        cr.setSourceRGBA(1, 1, 1, 0.18);
-        cr.stroke();
-
-        if (this.panelGaugeMode === "error") {
-            cr.setSourceRGBA(0.95, 0.22, 0.18, 1);
-        } else if (this.panelGaugeMode === "loading") {
-            cr.setSourceRGBA(0.45, 0.65, 1, 0.8);
-        } else {
-            let color = this._usageColor(ratio);
-            cr.setSourceRGBA(color[0], color[1], color[2], 1);
-        }
-
-        if (ratio > 0 || this.panelGaugeMode !== "normal") {
-            cr.arc(cx, cy, radius, start, Math.max(start + 0.04, activeEnd));
-            cr.stroke();
-        }
-
-        cr.$dispose();
-    }
-
-    _usageColor(ratio) {
-        if (ratio < 0.65) {
-            return [0.29, 0.87, 0.45];
-        }
-        if (ratio < 0.85) {
-            return [1.0, 0.72, 0.18];
-        }
-        return [0.96, 0.25, 0.20];
+    _providerEnabled(providerId) {
+        return providerId === "codex" ? this.enableCodex : this.enableAntigravity;
     }
 
     _scheduleRefresh() {
         this._clearRefreshTimer();
-        this.refreshTimerId = Mainloop.timeout_add_seconds(this.refreshInterval || DEFAULT_REFRESH_SECONDS, Lang.bind(this, function() {
-            this._refresh(false);
+        this._refreshTimerId = Mainloop.timeout_add_seconds(this.refreshInterval, () => {
+            if (this._destroyed) return false;
+            this._refreshAll(false);
             return true;
-        }));
+        });
     }
 
     _clearRefreshTimer() {
-        if (this.refreshTimerId) {
-            Mainloop.source_remove(this.refreshTimerId);
-            this.refreshTimerId = 0;
-        }
+        if (!this._refreshTimerId) return;
+        Mainloop.source_remove(this._refreshTimerId);
+        this._refreshTimerId = 0;
     }
 
-    _refresh(manual) {
-        if (this.refreshing) {
-            if (manual && this.menu.isOpen) {
-                this._buildMenu();
-            }
+    _refreshAll(manual) {
+        if (this._destroyed) return;
+        this.Constants.PROVIDER_ORDER.forEach((providerId) => {
+            if (this._providerEnabled(providerId)) this._refreshProvider(providerId);
+        });
+        if (manual) this._scheduleRefresh();
+        this._render();
+    }
+
+    _candidateCommandPaths() {
+        const home = GLib.get_home_dir();
+        return [
+            "/usr/local/bin/codexbar",
+            "/usr/bin/codexbar",
+            GLib.build_filenamev([home, ".local", "bin", "codexbar"]),
+            "/home/linuxbrew/.linuxbrew/bin/codexbar",
+            "/opt/apps/codexbar/codexbar"
+        ];
+    }
+
+    _isExecutable(path) {
+        return path && GLib.file_test(path, GLib.FileTest.IS_EXECUTABLE);
+    }
+
+    _resolveCommandPath() {
+        let configured = this.commandPath;
+        if (configured.indexOf("~/") === 0) {
+            configured = GLib.build_filenamev([GLib.get_home_dir(), configured.slice(2)]);
+        }
+        if (configured.indexOf("/") >= 0) return this._isExecutable(configured) ? configured : null;
+
+        const found = GLib.find_program_in_path(configured);
+        if (found && this._isExecutable(found)) return found;
+        const candidates = this._candidateCommandPaths();
+        for (let i = 0; i < candidates.length; i++) {
+            if (this._isExecutable(candidates[i])) return candidates[i];
+        }
+        return null;
+    }
+
+    _providerArgv(command, providerId) {
+        const argv = [command, "usage", "--provider", providerId];
+        if (providerId === "antigravity") argv.push("--source", "auto");
+        argv.push("--format", "json");
+        return argv;
+    }
+
+    _refreshProvider(providerId) {
+        const runtime = this.runtime[providerId];
+        if (runtime.refreshing || this._destroyed) return;
+
+        const command = this._resolveCommandPath();
+        if (!command) {
+            this._settleProvider(providerId, {
+                ok: false,
+                error: "CodexBar CLI not found",
+                record: null
+            });
             return;
         }
 
-        this.refreshing = true;
-        this.set_applet_tooltip("CodexBar: refreshing");
-        if (this.menu.isOpen) {
-            this._buildMenu();
-        }
+        runtime.refreshing = true;
+        runtime.requestId += 1;
+        const requestId = runtime.requestId;
+        const flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE;
 
         try {
-            Util.spawnCommandLineAsyncIO(null, Lang.bind(this, function(stdout, stderr, exitCode) {
-                this.refreshing = false;
+            const process = new Gio.Subprocess({
+                argv: this._providerArgv(command, providerId),
+                flags
+            });
+            process.init(null);
+            const cancellable = new Gio.Cancellable();
+            runtime.process = process;
+            runtime.cancellable = cancellable;
+            runtime.timeoutId = Mainloop.timeout_add_seconds(this.Constants.REFRESH_TIMEOUT_SECONDS, () => {
+                if (!runtime.refreshing || runtime.requestId !== requestId) return false;
+                runtime.timeoutId = 0;
+                try { process.force_exit(); } catch (_error) { /* already exited */ }
+                try { cancellable.cancel(); } catch (_error) { /* already cancelled */ }
+                this._finishProvider(providerId, requestId, {
+                    ok: false,
+                    error: "Refresh timed out",
+                    record: null
+                });
+                return false;
+            });
 
-                let output = stdout || "";
-                if (!output.trim() && stderr) {
-                    this._setErrorState("CodexBar failed: " + stderr.trim());
+            process.communicate_utf8_async(null, cancellable, (object, result) => {
+                if (!runtime.refreshing || runtime.requestId !== requestId || this._destroyed) return;
+                let stdout = "";
+                let stderr = "";
+                try {
+                    const completed = object.communicate_utf8_finish(result);
+                    stdout = completed[1] || "";
+                    stderr = completed[2] || "";
+                } catch (error) {
+                    this._finishProvider(providerId, requestId, {
+                        ok: false,
+                        error: this._friendlyError(providerId, error.message),
+                        record: null
+                    });
                     return;
                 }
 
+                let exitStatus = null;
                 try {
-                    let parsed = JSON.parse(output || "[]");
-                    this._setRecords(Array.isArray(parsed) ? parsed : [parsed]);
-                } catch (e) {
-                    let suffix = stderr ? " (" + stderr.trim() + ")" : "";
-                    this._setErrorState("Could not parse CodexBar JSON: " + e.message + suffix);
-                }
-
-                if (manual) {
-                    this._scheduleRefresh();
-                }
-            }), {
-                argv: [
-                this.commandPath || DEFAULT_COMMAND,
-                "usage",
-                "--format",
-                "json",
-                "--provider",
-                this.provider || DEFAULT_PROVIDER
-                ]
+                    if (object.get_if_exited()) exitStatus = object.get_exit_status();
+                    else if (object.get_if_signaled()) exitStatus = 128 + object.get_term_sig();
+                } catch (_error) { /* status is diagnostic only */ }
+                const normalized = this.Normalize.normalizeProcessOutput(stdout, stderr, exitStatus, providerId);
+                if (!normalized.ok) normalized.error = this._friendlyError(providerId, normalized.error);
+                this._finishProvider(providerId, requestId, normalized);
             });
-        } catch (e) {
-            this.refreshing = false;
-            this._setErrorState("Could not run CodexBar: " + e.message);
+        } catch (error) {
+            this._finishProvider(providerId, requestId, {
+                ok: false,
+                error: this._friendlyError(providerId, error.message),
+                record: null
+            });
         }
+    }
+
+    _friendlyError(providerId, value) {
+        const sanitized = this.Format.sanitizeError(value, GLib.get_home_dir(), 300);
+        const lower = sanitized.toLowerCase();
+        if (lower.indexOf("timed out") >= 0 || lower.indexOf("timeout") >= 0) return "Refresh timed out";
+        if (lower.indexOf("invalid codexbar json") >= 0) return "Invalid CodexBar JSON";
+        if (lower.indexOf("provider data not returned") >= 0) return "Provider data not returned";
+        if (providerId === "antigravity" &&
+            (lower.indexOf("language server") >= 0 || lower.indexOf("agy") >= 0 || lower.indexOf("not running") >= 0)) {
+            return "Start Antigravity or agy";
+        }
+        return sanitized;
+    }
+
+    _settleProvider(providerId, result) {
+        const runtime = this.runtime[providerId];
+        runtime.failureRecord = result && !result.ok ? result.record : null;
+        runtime.data = this.Normalize.settleProviderState(runtime.data, result, new Date());
+        this._render();
+    }
+
+    _finishProvider(providerId, requestId, result) {
+        const runtime = this.runtime[providerId];
+        if (!runtime.refreshing || runtime.requestId !== requestId) return;
+        if (runtime.timeoutId) {
+            Mainloop.source_remove(runtime.timeoutId);
+            runtime.timeoutId = 0;
+        }
+        runtime.refreshing = false;
+        runtime.process = null;
+        runtime.cancellable = null;
+        this._settleProvider(providerId, result);
+    }
+
+    _cancelProvider(providerId) {
+        const runtime = this.runtime[providerId];
+        if (runtime.timeoutId) {
+            Mainloop.source_remove(runtime.timeoutId);
+            runtime.timeoutId = 0;
+        }
+        if (runtime.cancellable) {
+            try { runtime.cancellable.cancel(); } catch (_error) { /* already cancelled */ }
+        }
+        if (runtime.process) {
+            try { runtime.process.force_exit(); } catch (_error) { /* already exited */ }
+        }
+        runtime.refreshing = false;
+        runtime.process = null;
+        runtime.cancellable = null;
+    }
+
+    _viewState(providerId) {
+        return this.Normalize.providerViewState(
+            this.runtime[providerId].data,
+            new Date(),
+            this.refreshInterval
+        );
+    }
+
+    _panelToken(providerId) {
+        const metadata = this.Constants.PROVIDERS[providerId];
+        const state = this._viewState(providerId);
+        let value = "?";
+        if (state.record) {
+            const displayed = this.Format.displayPercent(state.record.summaryUsedPercent, this.displayMode);
+            value = displayed === null ? "?" : `${displayed}%`;
+            if (state.record.stale) value += "~";
+        } else if (state.error) {
+            value = "!";
+        }
+        return `${metadata.shortTitle} ${value}`;
+    }
+
+    _isHorizontal() {
+        return this.orientation === St.Side.TOP || this.orientation === St.Side.BOTTOM;
+    }
+
+    _render() {
+        if (this._destroyed) return;
+        const enabled = this.Constants.PROVIDER_ORDER.filter((providerId) => this._providerEnabled(providerId));
+        const separator = this._isHorizontal() ? "  " : "\n";
+        this.set_applet_label(enabled.length > 0 ? enabled.map((providerId) => this._panelToken(providerId)).join(separator) : "Usage off");
+        this._applyPanelSeverity(enabled);
+        this.set_applet_tooltip(this._tooltip(enabled));
+        this._buildMenu();
+    }
+
+    _applyPanelSeverity(enabledProviders) {
+        ["normal", "warning", "danger", "unknown", "error"].forEach((name) => {
+            this.actor.remove_style_class_name(`codex-agy-panel-${name}`);
+        });
+        let severity = "unknown";
+        let highest = -1;
+        enabledProviders.forEach((providerId) => {
+            const state = this._viewState(providerId);
+            if (!state.record && state.error) {
+                severity = "error";
+                highest = 4;
+                return;
+            }
+            if (!state.record || state.record.summaryUsedPercent === null || highest >= 4) return;
+            const candidate = this.Format.usageSeverity(state.record.summaryUsedPercent);
+            const rank = { unknown: 0, normal: 1, warning: 2, danger: 3 }[candidate];
+            if (rank > highest) {
+                highest = rank;
+                severity = candidate;
+            }
+        });
+        this.actor.add_style_class_name(`codex-agy-panel-${severity}`);
+    }
+
+    _tooltip(enabledProviders) {
+        const lines = [];
+        enabledProviders.forEach((providerId) => {
+            const runtime = this.runtime[providerId];
+            const state = this._viewState(providerId);
+            const title = this.Constants.PROVIDERS[providerId].title;
+            if (state.record) {
+                let line = `${title}: ${this.Format.percentText(state.record.summaryUsedPercent, this.displayMode)}`;
+                if (state.record.stale) line += " (stale)";
+                lines.push(line);
+                if (state.record.stale && state.lastSuccessAt) lines.push(`Last success: ${this.Format.formatClock(state.lastSuccessAt)}`);
+            } else {
+                lines.push(`${title}: ${state.error || "Waiting for data"}`);
+            }
+            if (state.error && state.record) lines.push(`Error: ${state.error}`);
+            if (runtime.refreshing) lines.push(`${title}: refreshing`);
+        });
+        return lines.join("\n") || "Codex & Antigravity usage is disabled";
     }
 
     _buildMenu() {
+        if (!this.menu || this._destroyed) return;
         this.menu.removeAll();
-
-        let model = this._modelFromRecords(this.records);
-        this._addHeader(model);
-
-        if (model.error) {
-            this._addMessage(model.error, "codexbar-error");
-        } else if (model.rows.length === 0) {
-            this._addMessage("No usage data returned yet.", "codexbar-muted");
+        const enabled = this.Constants.PROVIDER_ORDER.filter((providerId) => this._providerEnabled(providerId));
+        if (enabled.length === 0) {
+            this._addMessage("Both providers are disabled.", "codex-agy-muted");
         } else {
-            for (let i = 0; i < model.rows.length; i++) {
-                this._addUsageRow(model.rows[i]);
-            }
+            enabled.forEach((providerId, index) => {
+                if (index > 0) this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                this._addProviderCard(providerId);
+            });
         }
-
-        if (model.extraUsage) {
-            this._addSectionSeparator();
-            this._addUsageRow(model.extraUsage);
-        }
-
-        if (model.costLines.length > 0) {
-            this._addSectionSeparator();
-            this._addCostSection(model.costLines);
-        }
-
-        this._addSectionSeparator();
-        this._addActions();
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        const refresh = new PopupMenu.PopupIconMenuItem("Refresh now", "view-refresh", St.IconType.SYMBOLIC);
+        refresh.connect("activate", () => this._refreshAll(true));
+        this.menu.addMenuItem(refresh);
+        this._addMessage(`Updated: ${this._latestSuccessText()}`, "codex-agy-muted");
     }
 
-    _addHeader(model) {
-        let item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: "codexbar-popup-item" });
-        let box = new St.BoxLayout({ vertical: true, style_class: "codexbar-card" });
-        let top = new St.BoxLayout({ vertical: false });
-        let title = new St.Label({ text: model.title, style_class: "codexbar-title" });
-        let right = new St.Label({ text: model.headerRight, style_class: "codexbar-muted" });
-
+    _addProviderCard(providerId) {
+        const runtime = this.runtime[providerId];
+        const state = this._viewState(providerId);
+        const record = state.record || runtime.failureRecord;
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: "codex-agy-popup-item" });
+        const card = new St.BoxLayout({ vertical: true, style_class: "codex-agy-card" });
+        const heading = new St.BoxLayout({ vertical: false });
+        const title = new St.Label({ text: this.Constants.PROVIDERS[providerId].title, style_class: "codex-agy-title" });
+        const source = new St.Label({ text: record ? record.source : "", style_class: "codex-agy-muted" });
         title.x_expand = true;
-        top.add_actor(title);
-        top.add_actor(right);
-        box.add_actor(top);
-        box.add_actor(new St.Label({ text: model.subtitle, style_class: "codexbar-subtitle" }));
-        item.addActor(box, { span: -1, expand: true });
+        heading.add_actor(title);
+        heading.add_actor(source);
+        card.add_actor(heading);
+
+        const subtitleParts = [];
+        if (record && record.plan) subtitleParts.push(record.plan);
+        if (runtime.refreshing) subtitleParts.push("Refreshing…");
+        else if (state.record && state.record.stale) subtitleParts.push("Stale data");
+        if (subtitleParts.length > 0) card.add_actor(new St.Label({
+            text: subtitleParts.join(" · "),
+            style_class: "codex-agy-subtitle"
+        }));
+
+        if (state.record && state.record.windows.length > 0) {
+            state.record.windows.forEach((window) => card.add_actor(this._windowActor(window)));
+        } else {
+            card.add_actor(this._messageLabel(state.error || "Waiting for data", state.error ? "codex-agy-error" : "codex-agy-muted"));
+        }
+        if (state.error && state.record) card.add_actor(this._messageLabel(`Error: ${state.error}`, "codex-agy-error"));
+        if (state.lastSuccessAt) {
+            card.add_actor(this._messageLabel(`Updated: ${this.Format.formatClock(state.lastSuccessAt)}`, "codex-agy-muted"));
+        } else if (state.lastAttemptAt) {
+            card.add_actor(this._messageLabel(`Attempted: ${this.Format.formatClock(state.lastAttemptAt)}`, "codex-agy-muted"));
+        }
+
+        item.addActor(card, { span: -1, expand: true });
         this.menu.addMenuItem(item);
     }
 
-    _addUsageRow(row) {
-        let item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: "codexbar-popup-item" });
-        let box = new St.BoxLayout({ vertical: true, style_class: "codexbar-row" });
-        let titleLine = new St.BoxLayout({ vertical: false });
-        let title = new St.Label({ text: row.title, style_class: "codexbar-row-title" });
-        let reset = new St.Label({ text: row.right || "", style_class: "codexbar-muted" });
+    _windowActor(window) {
+        const box = new St.BoxLayout({ vertical: true, style_class: "codex-agy-window" });
+        const heading = new St.BoxLayout({ vertical: false });
+        const label = new St.Label({ text: window.label, style_class: "codex-agy-window-title" });
+        const percent = new St.Label({
+            text: window.usageKnown ? this.Format.percentText(window.usedPercent, this.displayMode) : "Usage unknown",
+            style_class: window.usageKnown ? "codex-agy-detail" : "codex-agy-muted"
+        });
+        label.x_expand = true;
+        heading.add_actor(label);
+        heading.add_actor(percent);
+        box.add_actor(heading);
 
-        title.x_expand = true;
-        titleLine.add_actor(title);
-        titleLine.add_actor(reset);
-        box.add_actor(titleLine);
-        box.add_actor(this._progressBar(row.percent));
+        if (window.usageKnown) box.add_actor(this._progressBar(window.usedPercent));
+        else box.add_actor(new St.Label({ text: "Usage unavailable", style_class: "codex-agy-unknown-bar" }));
 
-        let detailLine = new St.BoxLayout({ vertical: false });
-        let detail = new St.Label({ text: row.detail || "", style_class: "codexbar-detail" });
-        detail.x_expand = true;
-        detailLine.add_actor(detail);
-        if (row.trailing) {
-            detailLine.add_actor(new St.Label({ text: row.trailing, style_class: "codexbar-muted" }));
-        }
-        box.add_actor(detailLine);
-
-        if (row.note) {
-            let note = new St.Label({ text: row.note, style_class: "codexbar-muted" });
-            note.clutter_text.line_wrap = true;
-            box.add_actor(note);
-        }
-
-        item.addActor(box, { span: -1, expand: true });
-        this.menu.addMenuItem(item);
+        const reset = this.Format.formatReset(window, new Date());
+        if (reset) box.add_actor(new St.Label({ text: reset, style_class: "codex-agy-reset" }));
+        return box;
     }
 
-    _progressBar(percent) {
-        let numericPercent = Number(percent || 0);
-        let clamped = Math.max(0, Math.min(100, numericPercent));
-        if (Math.round(clamped) === 100) {
-            clamped = 100;
-        }
-
-        let track = new St.BoxLayout({ style_class: "codexbar-progress-track" });
-        let fill = new St.Bin({ style_class: "codexbar-progress-fill" });
-        let updateFillWidth = function () {
-            let trackWidth = track.get_width();
-            let fillWidth = Math.round((trackWidth * clamped) / 100);
-
-            fill.set_width(clamped > 0 ? Math.max(3, fillWidth) : 0);
-        };
-
+    _progressBar(usedPercent) {
+        const clamped = Math.max(0, Math.min(100, Number(usedPercent)));
+        const severity = this.Format.usageSeverity(clamped);
+        const track = new St.BoxLayout({ style_class: "codex-agy-progress-track" });
+        const fill = new St.Bin({ style_class: `codex-agy-progress-fill codex-agy-progress-${severity}` });
         track.x_expand = true;
         track.add_actor(fill);
-        track.connect("notify::allocation", updateFillWidth);
+        track.connect("notify::allocation", () => {
+            const width = track.get_width();
+            fill.set_width(clamped > 0 ? Math.max(3, Math.round(width * clamped / 100)) : 0);
+        });
         return track;
     }
 
-    _addCostSection(lines) {
-        let item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: "codexbar-popup-item" });
-        let box = new St.BoxLayout({ vertical: true, style_class: "codexbar-row" });
-        box.add_actor(new St.Label({ text: "Cost", style_class: "codexbar-row-title" }));
-
-        for (let i = 0; i < lines.length; i++) {
-            box.add_actor(new St.Label({ text: lines[i], style_class: "codexbar-detail" }));
-        }
-
-        item.addActor(box, { span: -1, expand: true });
-        this.menu.addMenuItem(item);
-    }
-
-    _addActions() {
-        let refreshItem = new PopupMenu.PopupIconMenuItem("Refresh now", "view-refresh", St.IconType.SYMBOLIC);
-        refreshItem.connect("activate", Lang.bind(this, this._onRefreshClicked));
-        this.menu.addMenuItem(refreshItem);
-
-        this._addMessage("Updated: " + this._formatUpdated(this.lastUpdated), "codexbar-muted");
-    }
-
-    _onRefreshClicked() {
-        this._refresh(true);
+    _messageLabel(text, styleClass) {
+        const label = new St.Label({ text: String(text), style_class: styleClass });
+        label.clutter_text.line_wrap = true;
+        return label;
     }
 
     _addMessage(text, styleClass) {
-        let item = new PopupMenu.PopupMenuItem(text, { reactive: false });
+        const item = new PopupMenu.PopupMenuItem(String(text), { reactive: false });
         item.label.add_style_class_name(styleClass);
         item.label.clutter_text.line_wrap = true;
         this.menu.addMenuItem(item);
     }
 
-    _addSectionSeparator() {
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
-
-    _modelFromRecords(records) {
-        let record = this._firstRecord(records);
-        let provider = record && record.provider ? this._titleCase(record.provider) : "Codex";
-        let source = record && record.source ? record.source : "auto";
-
-        if (!record) {
-            return {
-                title: "Codex",
-                subtitle: "Waiting for data",
-                headerRight: "",
-                gaugePercent: 0,
-                tooltip: "CodexBar: waiting for data",
-                error: null,
-                rows: [],
-                extraUsage: null,
-                costLines: []
-            };
-        }
-
-        if (record.error) {
-            let message = this._errorMessage(record.error);
-            return {
-                title: provider,
-                subtitle: source,
-                headerRight: "!",
-                gaugePercent: 100,
-                tooltip: "CodexBar: " + message,
-                error: message,
-                rows: [],
-                extraUsage: null,
-                costLines: []
-            };
-        }
-
-        let gaugePercent = this._gaugeLimitPercent(record);
-        let rows = this._usageRows(record);
-        let extraUsage = this._extraUsage(record);
-        let costLines = this._costLines(record);
-
-        return {
-            title: provider,
-            subtitle: this.refreshing ? "Refreshing..." : "Updated " + this._relativeUpdated(this.lastUpdated),
-            headerRight: this.refreshing ? "" : source,
-            gaugePercent: gaugePercent,
-            tooltip: this._tooltip(provider, rows, extraUsage),
-            error: null,
-            rows: rows,
-            extraUsage: extraUsage,
-            costLines: costLines
-        };
-    }
-
-    _usageRows(record) {
-        let rows = [];
-        let primary = this._limitWindow(record, "primary");
-        let secondary = this._limitWindow(record, "secondary");
-
-        if (primary) {
-            rows.push(this._limitRow("Session", primary));
-        }
-
-        if (secondary) {
-            rows.push(this._limitRow("Weekly", secondary));
-        }
-
-        let windows = this._getPath(record, ["usage", "extraRateWindows"]) || [];
-        for (let i = 0; i < windows.length; i++) {
-            let title = windows[i].title || "Usage";
-            let lower = title.toLowerCase();
-            if (lower.indexOf("sonnet") >= 0) {
-                rows.push(this._paceRow("Sonnet", windows[i]));
-            }
-        }
-
-        let reviewRemaining = this._deepFind(record, "codeReviewRemaining");
-        if (reviewRemaining !== null && reviewRemaining !== undefined) {
-            rows.push({
-                title: "Code review",
-                percent: 0,
-                detail: this._displayValue(reviewRemaining) + " remaining",
-                right: "",
-                note: ""
-            });
-        }
-
-        return rows;
-    }
-
-    _gaugeLimitPercent(record) {
-        let primary = this._limitWindow(record, "primary");
-        let percent = primary ? this._firstNumber(primary, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]) : null;
-        if (percent !== null) {
-            return percent;
-        }
-
-        let secondary = this._limitWindow(record, "secondary");
-        percent = secondary ? this._firstNumber(secondary, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]) : null;
-        return percent === null ? 0 : percent;
-    }
-
-    _limitWindow(record, name) {
-        let paths = [
-            ["usage", name],
-            ["usage", "limits", name],
-            ["usage", "rateLimits", name],
-            ["usage", "rate_limits", name],
-            ["limits", name],
-            ["rateLimits", name],
-            ["rate_limits", name],
-            [name]
-        ];
-
-        for (let i = 0; i < paths.length; i++) {
-            let value = this._getPath(record, paths[i]);
-            if (value) {
-                return value;
-            }
-        }
-
-        return null;
-    }
-
-    _limitRow(title, value) {
-        let percent = this._firstNumber(value, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]);
-        let resetDescription = this._firstValue(value, ["resetDescription"]);
-        let reset = this._firstValue(value, ["resetsAt", "resetAt", "reset_at"]);
-        let right = "";
-
-        if (resetDescription) {
-            right = "Resets " + resetDescription;
-        } else if (reset) {
-            right = "Resets " + this._relativeTime(reset);
-        }
-
-        return {
-            title: title,
-            percent: percent || 0,
-            detail: this._percentText(percent),
-            right: right,
-            note: ""
-        };
-    }
-
-    _paceRow(title, value) {
-        let percent = this._firstNumber(value, ["usedPercent", "percentUsed", "usagePercent", "used_percent"]);
-        let reset = this._firstValue(value, ["resetsAt", "resetAt", "reset_at"]);
-        let delta = this._firstNumber(value, ["deltaPercent", "delta_percent"]);
-        let stage = this._firstValue(value, ["stage"]);
-        let summary = this._firstValue(value, ["summary"]);
-        let detail = this._percentText(percent);
-
-        return {
-            title: title,
-            percent: percent || 0,
-            detail: detail,
-            right: reset ? "Resets " + this._relativeTime(reset) : "",
-            note: summary || this._paceNote(stage, delta)
-        };
-    }
-
-    _extraUsage(record) {
-        let credits = this._getPath(record, ["credits"]);
-        if (!credits) {
-            return null;
-        }
-
-        let remaining = this._firstValue(credits, ["remaining", "available"]);
-        let limit = this._firstValue(credits, ["limit", "monthlyLimit", "included"]);
-        let used = this._firstValue(credits, ["used"]);
-        let percent = this._firstNumber(credits, ["usedPercent", "percentUsed"]);
-
-        if (remaining === null && limit === null && used === null && percent === null) {
-            return null;
-        }
-
-        let detail = "Remaining: " + this._displayValue(remaining);
-        if (used !== null || limit !== null) {
-            detail = "This month: " + this._displayValue(used || 0) + " / " + this._displayValue(limit || remaining);
-        }
-
-        return {
-            title: "Extra usage",
-            percent: percent || 0,
-            detail: detail,
-            trailing: this._percentText(percent || 0),
-            right: "",
-            note: ""
-        };
-    }
-
-    _costLines(record) {
-        let lines = [];
-        let cost = this._getPath(record, ["usage", "cost"]) || this._getPath(record, ["cost"]);
-
-        if (!cost) {
-            return lines;
-        }
-
-        let today = this._firstValue(cost, ["today", "todayCost"]);
-        let last30 = this._firstValue(cost, ["last30Days", "last30DaysCost", "month"]);
-        let tokensToday = this._firstValue(cost, ["todayTokens"]);
-        let tokens30 = this._firstValue(cost, ["last30DaysTokens"]);
-
-        if (today !== null) {
-            lines.push("Today: " + this._displayMoney(today) + (tokensToday !== null ? " · " + this._displayValue(tokensToday) + " tokens" : ""));
-        }
-
-        if (last30 !== null) {
-            lines.push("Last 30 days: " + this._displayMoney(last30) + (tokens30 !== null ? " · " + this._displayValue(tokens30) + " tokens" : ""));
-        }
-
-        return lines;
-    }
-
-    _firstRecord(records) {
-        if (!records || records.length === 0) {
-            return null;
-        }
-
-        for (let i = 0; i < records.length; i++) {
-            if (records[i] && !records[i].error) {
-                return records[i];
-            }
-        }
-
-        return records[0];
-    }
-
-    _firstValue(object, keys) {
-        if (!object) {
-            return null;
-        }
-
-        for (let i = 0; i < keys.length; i++) {
-            if (Object.prototype.hasOwnProperty.call(object, keys[i]) && object[keys[i]] !== null && object[keys[i]] !== undefined) {
-                return object[keys[i]];
-            }
-        }
-
-        return null;
-    }
-
-    _firstNumber(object, keys) {
-        let value = this._firstValue(object, keys);
-        if (value === null) {
-            return null;
-        }
-
-        let numberValue = Number(value);
-        return isNaN(numberValue) ? null : numberValue;
-    }
-
-    _getPath(object, path) {
-        let cursor = object;
-        for (let i = 0; i < path.length; i++) {
-            if (!cursor || typeof cursor !== "object" || !Object.prototype.hasOwnProperty.call(cursor, path[i])) {
-                return null;
-            }
-            cursor = cursor[path[i]];
-        }
-
-        return cursor;
-    }
-
-    _deepFind(value, key) {
-        if (!value || typeof value !== "object") {
-            return null;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-            return value[key];
-        }
-
-        let keys = Object.keys(value);
-        for (let i = 0; i < keys.length; i++) {
-            let found = this._deepFind(value[keys[i]], key);
-            if (found !== null && found !== undefined) {
-                return found;
-            }
-        }
-
-        return null;
-    }
-
-    _tooltip(provider, rows, extraUsage) {
-        let parts = [provider];
-        for (let i = 0; i < rows.length; i++) {
-            parts.push(rows[i].title + ": " + rows[i].detail);
-        }
-        if (extraUsage) {
-            parts.push(extraUsage.title + ": " + extraUsage.detail);
-        }
-        return parts.join("\n");
-    }
-
-    _errorMessage(error) {
-        if (!error) {
-            return "Unknown error";
-        }
-        if (typeof error === "string") {
-            return error;
-        }
-        return error.message || JSON.stringify(error);
-    }
-
-    _paceNote(stage, delta) {
-        let parts = [];
-        if (stage) {
-            parts.push("Pace: " + this._titleCase(stage));
-        }
-        if (delta !== null && delta !== undefined) {
-            parts.push((delta > 0 ? "+" : "") + Math.round(delta) + "%");
-        }
-        return parts.join(" · ");
-    }
-
-    _percentText(percent) {
-        return Math.round(Number(percent || 0)) + "% used";
-    }
-
-    _displayValue(value) {
-        if (value === null || value === undefined || value === "") {
-            return "0";
-        }
-        if (typeof value === "number") {
-            return value >= 1000 ? Math.round(value).toLocaleString() : String(value);
-        }
-        return String(value);
-    }
-
-    _displayMoney(value) {
-        let numberValue = Number(value);
-        if (isNaN(numberValue)) {
-            return String(value);
-        }
-        return "$ " + numberValue.toFixed(2);
-    }
-
-    _titleCase(value) {
-        let text = String(value || "");
-        return text.charAt(0).toUpperCase() + text.slice(1);
-    }
-
-    _relativeUpdated(date) {
-        if (!date) {
-            return "soon";
-        }
-
-        let seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-        if (seconds < 45) {
-            return "just now";
-        }
-        if (seconds < 3600) {
-            return Math.floor(seconds / 60) + "m ago";
-        }
-        return date.toLocaleTimeString();
-    }
-
-    _formatUpdated(date) {
-        return date ? date.toLocaleTimeString() : "never";
-    }
-
-    _relativeTime(value) {
-        let date = new Date(value);
-        if (isNaN(date.getTime())) {
-            return String(value);
-        }
-
-        let minutes = Math.max(0, Math.floor((date.getTime() - Date.now()) / 60000));
-        let days = Math.floor(minutes / 1440);
-        let hours = Math.floor((minutes % 1440) / 60);
-        let mins = minutes % 60;
-
-        if (days > 0) {
-            return "in " + days + "d " + hours + "h";
-        }
-        if (hours > 0) {
-            return "in " + hours + "h " + mins + "m";
-        }
-        return "in " + mins + "m";
+    _latestSuccessText() {
+        let latest = null;
+        this.Constants.PROVIDER_ORDER.forEach((providerId) => {
+            const date = this.runtime[providerId].data.lastSuccessAt;
+            if (date && (!latest || date.getTime() > latest.getTime())) latest = date;
+        });
+        return this.Format.formatClock(latest);
     }
 }
 
 function main(metadata, orientation, panelHeight, instanceId) {
-    return new CodexBarApplet(metadata, orientation, panelHeight, instanceId);
+    return new CodexAgyUsageApplet(metadata, orientation, panelHeight, instanceId);
 }

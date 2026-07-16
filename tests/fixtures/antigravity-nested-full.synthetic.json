@@ -1,0 +1,64 @@
+[
+  {
+    "provider": "antigravity",
+    "source": "local",
+    "usage": {
+      "identity": {
+        "accountEmail": "user@example.invalid",
+        "loginMethod": "Google AI Pro",
+        "providerID": "antigravity"
+      },
+      "primary": {
+        "label": "Gemini Weekly",
+        "resetsAt": "2026-07-20T12:00:00Z",
+        "usedPercent": 35,
+        "windowMinutes": 10080
+      },
+      "secondary": {
+        "label": "Claude + GPT Weekly",
+        "resetsAt": "2026-07-20T12:00:00Z",
+        "usedPercent": 64,
+        "windowMinutes": 10080
+      },
+      "extraRateWindows": [
+        {
+          "id": "antigravity-quota-summary-gemini-5h",
+          "title": "Gemini Session",
+          "window": {
+            "resetsAt": "2026-07-15T16:00:00Z",
+            "usedPercent": 80,
+            "windowMinutes": 300
+          }
+        },
+        {
+          "id": "antigravity-quota-summary-gemini-weekly",
+          "title": "Gemini Weekly",
+          "window": {
+            "resetsAt": "2026-07-20T12:00:00Z",
+            "usedPercent": 35,
+            "windowMinutes": 10080
+          }
+        },
+        {
+          "id": "antigravity-quota-summary-3p-5h",
+          "title": "Claude + GPT Session",
+          "window": {
+            "resetsAt": "2026-07-15T15:42:00Z",
+            "usedPercent": 100,
+            "windowMinutes": 300
+          }
+        },
+        {
+          "id": "antigravity-quota-summary-3p-weekly",
+          "title": "Claude + GPT Weekly",
+          "window": {
+            "resetsAt": "2026-07-20T12:00:00Z",
+            "usedPercent": 64,
+            "windowMinutes": 10080
+          }
+        }
+      ],
+      "updatedAt": "2026-07-15T14:59:03Z"
+    }
+  }
+]

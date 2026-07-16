@@ -1,0 +1,25 @@
+[
+  {
+    "provider": "antigravity",
+    "source": "cli",
+    "usage": {
+      "accountEmail": "user@example.invalid",
+      "identity": {
+        "accountEmail": "user@example.invalid",
+        "loginMethod": "Google AI Pro",
+        "providerID": "antigravity"
+      },
+      "loginMethod": "Google AI Pro",
+      "primary": {
+        "resetsAt": "2026-07-15T19:59:03Z",
+        "usedPercent": 0
+      },
+      "secondary": {
+        "resetsAt": "2026-07-15T19:59:03Z",
+        "usedPercent": 0
+      },
+      "tertiary": null,
+      "updatedAt": "2026-07-15T14:59:03Z"
+    }
+  }
+]

@@ -1,0 +1,6 @@
+node_modules/
+npm-debug.log*
+
+# Raw CodexBar captures may contain account identifiers or credentials.
+tests/fixtures/*.raw.json
+tests/fixtures/*-raw.json

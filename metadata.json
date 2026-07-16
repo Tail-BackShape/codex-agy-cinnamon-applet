@@ -1,8 +1,8 @@
 {
-    "uuid": "codexbar@local",
-    "name": "CodexBar",
-    "version": "0.0.1",
-    "description": "Display CodexBar usage information in the Cinnamon panel",
-    "icon": "utilities-system-monitor",
-    "max-instances": -1
+  "uuid": "codex-agy-usage@local",
+  "name": "Codex & Antigravity Usage",
+  "version": "0.1.0",
+  "description": "Display Codex and Antigravity quota usage from the CodexBar CLI",
+  "icon": "utilities-system-monitor",
+  "max-instances": 1
 }

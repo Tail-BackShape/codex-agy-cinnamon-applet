@@ -1,0 +1,15 @@
+{
+  "provider": "antigravity",
+  "source": "oauth",
+  "usage": {
+    "identity": {
+      "accountEmail": "user@example.invalid",
+      "loginMethod": "Google AI Pro",
+      "providerID": "antigravity"
+    },
+    "primary": null,
+    "secondary": null,
+    "tertiary": null,
+    "updatedAt": "2026-07-15T14:59:03Z"
+  }
+}

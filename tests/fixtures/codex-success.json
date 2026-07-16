@@ -1,0 +1,73 @@
+[
+  {
+    "credits": {
+      "events": [],
+      "remaining": 0,
+      "updatedAt": "2026-07-15T14:58:56Z"
+    },
+    "provider": "codex",
+    "source": "oauth",
+    "usage": {
+      "accountEmail": "user@example.invalid",
+      "codexResetCredits": {
+        "availableCount": 4,
+        "credits": [
+          {
+            "description": "Thanks for using Codex! You've been granted one free rate limit reset.",
+            "expires_at": "2026-07-18T00:31:23Z",
+            "granted_at": "2026-06-18T00:31:23Z",
+            "id": "<redacted-id>",
+            "reset_type": "codex_rate_limits",
+            "status": "available",
+            "title": "Full reset"
+          },
+          {
+            "description": "Thanks for using Codex! You've been granted one free rate limit reset.",
+            "expires_at": "2026-07-27T00:03:41Z",
+            "granted_at": "2026-06-27T00:03:41Z",
+            "id": "<redacted-id>",
+            "reset_type": "codex_rate_limits",
+            "status": "available",
+            "title": "Full reset"
+          },
+          {
+            "description": "Thanks for using Codex! You've been granted one free rate limit reset.",
+            "expires_at": "2026-07-31T20:27:52Z",
+            "granted_at": "2026-07-01T20:27:52Z",
+            "id": "<redacted-id>",
+            "reset_type": "codex_rate_limits",
+            "status": "available",
+            "title": "Full reset"
+          },
+          {
+            "description": "Thanks for using Codex! You've been granted one free rate limit reset.",
+            "expires_at": "2026-08-12T17:59:35Z",
+            "granted_at": "2026-07-13T17:59:35Z",
+            "id": "<redacted-id>",
+            "reset_type": "codex_rate_limits",
+            "status": "available",
+            "title": "Full reset"
+          }
+        ],
+        "updatedAt": "2026-07-15T14:58:56Z"
+      },
+      "dataConfidence": "exact",
+      "identity": {
+        "accountEmail": "user@example.invalid",
+        "loginMethod": "plus",
+        "providerID": "codex"
+      },
+      "loginMethod": "plus",
+      "primary": null,
+      "secondary": {
+        "resetDescription": "Jul 22 at 11:38 PM",
+        "resetsAt": "2026-07-22T14:38:59Z",
+        "usedPercent": 4,
+        "windowMinutes": 10080
+      },
+      "tertiary": null,
+      "updatedAt": "2026-07-15T14:58:56Z"
+    },
+    "version": "0.142.2"
+  }
+]
