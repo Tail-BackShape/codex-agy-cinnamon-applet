@@ -42,12 +42,13 @@ class CodexAgyUsageApplet extends Applet.TextIconApplet {
         this.menuManager.addMenu(this.menu);
 
         this.hide_applet_icon();
-        this.set_applet_label("C ?  A ?");
+        this.set_applet_label("C ?  A ?  D ?");
 
         this.settings = new Settings.AppletSettings(this, metadata.uuid, instanceId);
         this.settings.bind("command-path", "commandPath", this._onSettingsChanged.bind(this));
         this.settings.bind("enable-codex", "enableCodex", this._onSettingsChanged.bind(this));
         this.settings.bind("enable-antigravity", "enableAntigravity", this._onSettingsChanged.bind(this));
+        this.settings.bind("enable-devin", "enableDevin", this._onSettingsChanged.bind(this));
         this.settings.bind("refresh-interval", "refreshInterval", this._onSettingsChanged.bind(this));
         this.settings.bind("display-mode", "displayMode", this._onSettingsChanged.bind(this));
         this._initializingSettings = false;
@@ -94,10 +95,13 @@ class CodexAgyUsageApplet extends Applet.TextIconApplet {
         this.displayMode = this.displayMode === "remaining" ? "remaining" : "used";
         this.enableCodex = this.enableCodex !== false;
         this.enableAntigravity = this.enableAntigravity !== false;
+        this.enableDevin = this.enableDevin !== false;
     }
 
     _providerEnabled(providerId) {
-        return providerId === "codex" ? this.enableCodex : this.enableAntigravity;
+        if (providerId === "codex") return this.enableCodex;
+        if (providerId === "antigravity") return this.enableAntigravity;
+        return providerId === "devin" && this.enableDevin;
     }
 
     _scheduleRefresh() {
@@ -365,7 +369,7 @@ class CodexAgyUsageApplet extends Applet.TextIconApplet {
             if (state.error && state.record) lines.push(`Error: ${state.error}`);
             if (runtime.refreshing) lines.push(`${title}: refreshing`);
         });
-        return lines.join("\n") || "Codex & Antigravity usage is disabled";
+        return lines.join("\n") || "Provider usage is disabled";
     }
 
     _buildMenu() {
@@ -373,7 +377,7 @@ class CodexAgyUsageApplet extends Applet.TextIconApplet {
         this.menu.removeAll();
         const enabled = this.Constants.PROVIDER_ORDER.filter((providerId) => this._providerEnabled(providerId));
         if (enabled.length === 0) {
-            this._addMessage("Both providers are disabled.", "codex-agy-muted");
+            this._addMessage("All providers are disabled.", "codex-agy-muted");
         } else {
             enabled.forEach((providerId, index) => {
                 if (index > 0) this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());

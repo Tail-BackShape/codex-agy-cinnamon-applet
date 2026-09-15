@@ -14,4 +14,4 @@ else
     printf 'Applet is not installed: %s\n' "$TARGET"
 fi
 
-printf 'CodexBar, Codex CLI, Antigravity, agy, and authentication data were not changed.\n'
+printf 'CodexBar, Codex CLI, Antigravity, agy, Devin, and authentication data were not changed.\n'

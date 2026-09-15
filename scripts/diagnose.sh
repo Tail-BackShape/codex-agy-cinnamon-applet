@@ -154,3 +154,4 @@ trap 'rm -rf -- "$TMP_DIR"' EXIT
 
 run_provider codex "$TMP_DIR/codex.json" "$TMP_DIR/codex.err"
 run_provider antigravity "$TMP_DIR/antigravity.json" "$TMP_DIR/antigravity.err"
+run_provider devin "$TMP_DIR/devin.json" "$TMP_DIR/devin.err"

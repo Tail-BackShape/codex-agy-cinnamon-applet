@@ -1,10 +1,10 @@
-# Codex & Antigravity Usage
+# Codex, Antigravity & Devin Usage
 
 English | [日本語](README.ja.md)
 
-A Linux Mint Cinnamon panel applet that displays OpenAI Codex and Google Antigravity quota usage
+A Linux Mint Cinnamon panel applet that displays OpenAI Codex, Google Antigravity, and Devin quota usage
 from the [CodexBar](https://github.com/steipete/CodexBar) Linux CLI. Each provider refreshes
-independently, so a failure in one does not hide valid data from the other.
+independently, so a failure in one does not hide valid data from the others.
 
 ![Codex and Antigravity usage popup preview](docs/screenshot.svg)
 
@@ -12,7 +12,7 @@ _Illustrative preview rendered from sanitized fixture values; it contains no acc
 
 ## Features
 
-- Compact panel text for Codex and Antigravity, with used or remaining percentages
+- Compact panel text for Codex, Antigravity, and Devin, with used or remaining percentages
 - Every quota window returned by CodexBar, including named model groups and reset times
 - Worst-known-window summary instead of assuming `usage.primary` is representative
 - Correct distinction between 0%, unknown usage, stale data, and initial errors
@@ -25,13 +25,14 @@ _Illustrative preview rendered from sanitized fixture values; it contains no acc
 - [CodexBar Linux CLI](https://github.com/steipete/CodexBar/blob/main/docs/cli.md)
 - Codex CLI signed in for Codex quota data
 - Antigravity or `agy` signed in for Antigravity quota data
+- CodexBar v0.60.0 or newer for Devin quota data on Linux
 - `lsof` for CodexBar's local Antigravity discovery
 - Optional: `jq` for detailed redacted diagnostic JSON
 - Optional for development only: Node.js 18 or newer
 
-This release was validated with CodexBar v0.43.0 on Linux x86_64. Download release artifacts only
-from the [official release page](https://github.com/steipete/CodexBar/releases/tag/v0.43.0) and verify
-the archive against its adjacent SHA256 file before installing it.
+For Devin on Linux, use CodexBar v0.60.0 or newer. Download release artifacts only from the
+[official release page](https://github.com/steipete/CodexBar/releases) and verify the archive
+against its adjacent SHA256 file before installing it.
 
 Confirm the backend before installing the applet:
 
@@ -41,6 +42,7 @@ codexbar --version
 codexbar config validate --format json --pretty
 codexbar usage --provider codex --format json --pretty
 codexbar usage --provider antigravity --source auto --format json --pretty
+codexbar usage --provider devin --format json --pretty
 ```
 
 If CodexBar is outside the Cinnamon process PATH, set an absolute path in the applet settings.
@@ -55,7 +57,7 @@ From this checkout:
 ./scripts/install.sh
 ```
 
-Then open **System Settings -> Applets**, select **Codex & Antigravity Usage**, and add it to the
+Then open **System Settings -> Applets**, select **Codex, Antigravity & Devin Usage**, and add it to the
 panel. Remove and re-add the applet or restart Cinnamon after updating its JavaScript or CSS.
 
 The installer creates only this symlink:
@@ -82,11 +84,34 @@ Uninstalling does not remove CodexBar, Codex CLI, Antigravity, `agy`, configurat
 | CodexBar command path | `codexbar` | Executable name or explicit path |
 | Show Codex | On | Enable Codex refresh and display |
 | Show Antigravity | On | Enable Antigravity refresh and display |
+| Show Devin | On | Enable Devin refresh and display |
 | Refresh interval | 60 seconds | 30 to 3600 seconds, in 30-second steps |
 | Displayed percentage | Used | Switch between used and remaining percentages |
 
 Internally, quota values always remain `usedPercent`. Warning colors therefore continue to mean
 quota pressure even when the displayed number is the remaining percentage.
+
+## Devin behavior and setup
+
+CodexBar fetches Devin's daily and weekly quotas from `app.devin.ai`. On Linux, automatic Chrome
+session import is unavailable, so configure manual authentication in CodexBar using a Bearer token
+and the internal organization ID:
+
+```json
+{
+  "version": 1,
+  "providers": [{
+    "id": "devin",
+    "cookieSource": "manual",
+    "cookieHeader": "Bearer YOUR_DEVIN_TOKEN",
+    "workspaceID": "org_YOUR_ORGANIZATION"
+  }]
+}
+```
+
+Keep the token in CodexBar's configuration or use `DEVIN_BEARER_TOKEN` and `DEVIN_ORG`; the applet
+does not read or store Devin credentials directly. See the [CodexBar Devin setup guide](https://raw.githubusercontent.com/steipete/CodexBar/main/docs/devin.md)
+for how to obtain the token and organization ID.
 
 ## Antigravity behavior and limitations
 
@@ -113,7 +138,7 @@ With `jq`, provider JSON is recursively redacted before display. Without `jq`, o
 source, usage presence, and error presence are printed. Raw stderr is never printed. Also check:
 
 ```bash
-journalctl --user -f | grep -Ei 'cinnamon|codex|antigravity'
+journalctl --user -f | grep -Ei 'cinnamon|codex|antigravity|devin'
 tail -n 200 ~/.xsession-errors
 ```
 
@@ -164,6 +189,6 @@ at commit `2b5ad38fb49aff4ad1d2eb4dc9781eb200a38b4d`. The original MIT copyright
 [LICENSE](LICENSE). Usage acquisition is delegated to
 [steipete/CodexBar](https://github.com/steipete/CodexBar), also MIT licensed.
 
-The main differences from the base applet are simultaneous dual-provider display, independent
+The main differences from the base applet are simultaneous multi-provider display, independent
 refresh state, a schema-tolerant normalization layer, all-window rendering, unknown and stale
 semantics, safe command discovery, tests, and distribution/diagnostic tooling.

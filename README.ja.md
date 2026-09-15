@@ -1,10 +1,10 @@
-# Codex & Antigravity Usage
+# Codex, Antigravity & Devin Usage
 
 [English](README.md) | 日本語
 
-[CodexBar](https://github.com/steipete/CodexBar) Linux CLIから、OpenAI CodexとGoogle Antigravityの
+[CodexBar](https://github.com/steipete/CodexBar) Linux CLIから、OpenAI Codex、Google Antigravity、Devinの
 クォータ使用量を表示するLinux Mint Cinnamon用パネルアプレットです。providerごとに独立して
-更新するため、一方の取得に失敗しても、もう一方の正常なデータは表示され続けます。
+更新するため、一つの取得に失敗しても、他の正常なデータは表示され続けます。
 
 ![CodexとAntigravityの使用量ポップアップのプレビュー](docs/screenshot.svg)
 
@@ -12,7 +12,7 @@ _匿名化fixtureの値から作成した説明用プレビューです。アカ
 
 ## 機能
 
-- CodexとAntigravityの使用率または残量を、省スペースのパネルテキストで表示
+- Codex、Antigravity、Devinの使用率または残量を、省スペースのパネルテキストで表示
 - 名前付きモデルグループやリセット時刻を含め、CodexBarが返す全クォータwindowを表示
 - `usage.primary`を代表値と仮定せず、既知windowのうち使用率が最大のものをサマリーに採用
 - 0%、使用量不明、staleデータ、初回エラーを明確に区別
@@ -25,13 +25,14 @@ _匿名化fixtureの値から作成した説明用プレビューです。アカ
 - [CodexBar Linux CLI](https://github.com/steipete/CodexBar/blob/main/docs/cli.md)
 - Codexクォータ取得用にサインイン済みのCodex CLI
 - Antigravityクォータ取得用にサインイン済みのAntigravityまたは`agy`
+- LinuxでDevinクォータを取得する場合はCodexBar v0.60.0以降
 - CodexBarがローカルのAntigravityを検出するための`lsof`
 - 任意: 詳細な匿名化診断JSONを表示するための`jq`
 - 開発時のみ任意: Node.js 18以降
 
-このリリースは、Linux x86_64上のCodexBar v0.43.0で検証しています。リリース成果物は
-[公式リリースページ](https://github.com/steipete/CodexBar/releases/tag/v0.43.0)からのみ取得し、
-インストール前に隣接するSHA256ファイルを使ってarchiveを検証してください。
+LinuxでDevinを使う場合はCodexBar v0.60.0以降を使用してください。リリース成果物は
+[公式リリースページ](https://github.com/steipete/CodexBar/releases)からのみ取得し、インストール前に
+隣接するSHA256ファイルを使ってarchiveを検証してください。
 
 アプレットをインストールする前に、backendを確認します。
 
@@ -41,6 +42,7 @@ codexbar --version
 codexbar config validate --format json --pretty
 codexbar usage --provider codex --format json --pretty
 codexbar usage --provider antigravity --source auto --format json --pretty
+codexbar usage --provider devin --format json --pretty
 ```
 
 CodexBarがCinnamonプロセスのPATH外にある場合は、アプレット設定で絶対パスを指定してください。
@@ -55,7 +57,7 @@ CodexBarがCinnamonプロセスのPATH外にある場合は、アプレット設
 ./scripts/install.sh
 ```
 
-続いて、**システム設定 → アプレット**を開き、**Codex & Antigravity Usage**を選択して
+続いて、**システム設定 → アプレット**を開き、**Codex, Antigravity & Devin Usage**を選択して
 パネルへ追加します。JavaScriptやCSSを更新した場合は、アプレットをいったん削除して再追加するか、
 Cinnamonを再起動してください。
 
@@ -83,11 +85,33 @@ installerが作成するのは、次のsymlinkだけです。
 | CodexBar command path | `codexbar` | 実行ファイル名または明示的なパス |
 | Show Codex | On | Codexの更新と表示を有効化 |
 | Show Antigravity | On | Antigravityの更新と表示を有効化 |
+| Show Devin | On | Devinの更新と表示を有効化 |
 | Refresh interval | 60秒 | 30〜3600秒、30秒単位 |
 | Displayed percentage | Used | 使用率と残量の表示を切り替え |
 
 内部のクォータ値は常に`usedPercent`として保持されます。そのため、残量を表示している場合でも、
 警告色はクォータ消費の逼迫度を示します。
+
+## Devinの動作と設定
+
+CodexBarは`app.devin.ai`からDevinの日次・週次クォータを取得します。LinuxではChromeセッションの
+自動取り込みが使えないため、CodexBarにBearer tokenと内部organization IDを手動設定してください。
+
+```json
+{
+  "version": 1,
+  "providers": [{
+    "id": "devin",
+    "cookieSource": "manual",
+    "cookieHeader": "Bearer YOUR_DEVIN_TOKEN",
+    "workspaceID": "org_YOUR_ORGANIZATION"
+  }]
+}
+```
+
+tokenはCodexBarの設定ファイルに保存するか、`DEVIN_BEARER_TOKEN`と`DEVIN_ORG`を使ってください。
+アプレットがDevinの認証情報を直接読み書きすることはありません。tokenとorganization IDの取得方法は
+[CodexBarのDevin設定ガイド](https://raw.githubusercontent.com/steipete/CodexBar/main/docs/devin.md)を参照してください。
 
 ## Antigravityの動作と制約
 
@@ -115,7 +139,7 @@ provider、source、usageの有無、errorの有無だけを表示します。�
 次のログも確認できます。
 
 ```bash
-journalctl --user -f | grep -Ei 'cinnamon|codex|antigravity'
+journalctl --user -f | grep -Ei 'cinnamon|codex|antigravity|devin'
 tail -n 200 ~/.xsession-errors
 ```
 
@@ -166,6 +190,6 @@ commit `2b5ad38fb49aff4ad1d2eb4dc9781eb200a38b4d`を基にしています。元�
 [LICENSE](LICENSE)に保持しています。使用量の取得は、同じくMITライセンスの
 [steipete/CodexBar](https://github.com/steipete/CodexBar)へ委譲しています。
 
-基になったアプレットとの主な違いは、2つのproviderの同時表示、独立した更新状態、schemaの差異に
+基になったアプレットとの主な違いは、複数providerの同時表示、独立した更新状態、schemaの差異に
 対応する正規化層、全windowの表示、unknown・staleの表現、安全なcommand探索、テスト、
 配布・診断toolingです。

@@ -54,6 +54,15 @@ test("normalizes captured Codex and Antigravity fixtures", () => {
   assert.equal(agy.record.summaryUsedPercent, 0);
 });
 
+test("normalizes Devin daily and weekly quota windows", () => {
+  const result = Normalize.parseProviderJson(fixture("devin-success.json"), "devin");
+  assert.equal(result.ok, true);
+  assert.equal(result.record.title, "Devin");
+  assert.deepEqual(result.record.windows.map((window) => window.label), ["Daily", "Weekly"]);
+  assert.deepEqual(result.record.windows.map((window) => window.usedPercent), [22, 41]);
+  assert.equal(result.record.summaryUsedPercent, 41);
+});
+
 test("reads nested named windows, removes duplicates, and selects worst known usage", () => {
   const result = Normalize.parseProviderJson(fixture("antigravity-nested-full.synthetic.json"), "antigravity");
   assert.equal(result.ok, true);

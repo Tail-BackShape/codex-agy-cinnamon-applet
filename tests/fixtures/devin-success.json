@@ -1,0 +1,21 @@
+[
+  {
+    "provider": "devin",
+    "source": "web",
+    "usage": {
+      "identity": {
+        "providerID": "devin"
+      },
+      "primary": {
+        "usedPercent": 22,
+        "resetsAt": "2026-09-16T00:00:00Z",
+        "windowMinutes": 1440
+      },
+      "secondary": {
+        "usedPercent": 41,
+        "resetsAt": "2026-09-21T00:00:00Z",
+        "windowMinutes": 10080
+      }
+    }
+  }
+]

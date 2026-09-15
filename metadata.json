@@ -1,8 +1,8 @@
 {
   "uuid": "codex-agy-usage@local",
-  "name": "Codex & Antigravity Usage",
+  "name": "Codex, Antigravity & Devin Usage",
   "version": "0.1.0",
-  "description": "Display Codex and Antigravity quota usage from the CodexBar CLI",
+  "description": "Display Codex, Antigravity, and Devin quota usage from the CodexBar CLI",
   "icon": "utilities-system-monitor",
   "max-instances": 1
 }

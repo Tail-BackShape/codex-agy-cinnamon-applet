@@ -69,4 +69,4 @@ fi
 
 ln -s -- "$PROJECT_DIR" "$TARGET"
 printf 'Installed symlink: %s -> %s\n' "$TARGET" "$PROJECT_DIR"
-printf 'Open System Settings -> Applets -> Codex & Antigravity Usage -> Add.\n'
+printf 'Open System Settings -> Applets -> Codex, Antigravity & Devin Usage -> Add.\n'

@@ -10,7 +10,7 @@
     "providers": {
       "type": "section",
       "title": "Providers",
-      "keys": ["command-path", "enable-codex", "enable-antigravity"]
+      "keys": ["command-path", "enable-codex", "enable-antigravity", "enable-devin"]
     },
     "refresh": {
       "type": "section",
@@ -37,6 +37,11 @@
     "type": "switch",
     "default": true,
     "description": "Show Antigravity"
+  },
+  "enable-devin": {
+    "type": "switch",
+    "default": true,
+    "description": "Show Devin"
   },
   "refresh-interval": {
     "type": "spinbutton",

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add Devin daily and weekly quota display, including remaining-percentage mode.
+- Add Devin setup guidance for CodexBar's Linux manual authentication.
+
 ## 0.1.0 - 2026-07-15
 
 - Add independent Codex and Antigravity refreshes through the CodexBar Linux CLI.
