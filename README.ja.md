@@ -13,7 +13,7 @@ _匿名化fixtureの値から作成した説明用プレビューです。アカ
 ## 機能
 
 - Codex、Antigravity、Devinの使用率または残量を、省スペースのパネルテキストで表示
-- 名前付きモデルグループやリセット時刻を含め、CodexBarが返す全クォータwindowを表示
+- CodexBarの表示名を使い、モデルグループ別のクォータ枠とリセット時刻を表示
 - `usage.primary`を代表値と仮定せず、既知windowのうち使用率が最大のものをサマリーに採用
 - 0%、使用量不明、staleデータ、初回エラーを明確に区別
 - providerごとの独立したエラー、最終正常値、手動更新、25秒timeout
@@ -33,6 +33,8 @@ _匿名化fixtureの値から作成した説明用プレビューです。アカ
 LinuxでDevinを使う場合はCodexBar v0.60.0以降を使用してください。リリース成果物は
 [公式リリースページ](https://github.com/steipete/CodexBar/releases)からのみ取得し、インストール前に
 隣接するSHA256ファイルを使ってarchiveを検証してください。
+
+Linux版のCodexBar CLI v0.84.0で、Codex、Antigravity、Devinの使用量取得を確認しています。
 
 アプレットをインストールする前に、backendを確認します。
 
@@ -58,8 +60,8 @@ CodexBarがCinnamonプロセスのPATH外にある場合は、アプレット設
 ```
 
 続いて、**システム設定 → アプレット**を開き、**Codex, Antigravity & Devin Usage**を選択して
-パネルへ追加します。JavaScriptやCSSを更新した場合は、アプレットをいったん削除して再追加するか、
-Cinnamonを再起動してください。
+パネルへ追加します。アプレットを更新したら、Cinnamonを再起動してください。Cinnamon 6.6.9では、
+アプレットだけを再読み込みすると、キャッシュされたJavaScriptモジュールが残る場合があります。
 
 installerが作成するのは、次のsymlinkだけです。
 
@@ -120,6 +122,9 @@ Antigravityアプリ、`agy` CLI、IDE language server、または設定済みOA
 ローカル取得には、Antigravityアプリまたは`agy`が利用可能であることが必要な場合があります。
 OAuthでアカウントを識別できてもGoogleからクォータ上限が返されない場合は、
 **Signed in; limits unavailable**と表示します。
+
+Antigravityでは、**Gemini 5-hour**や**Gemini weekly**などの名前付きクォータ枠が
+代表枠としても返る場合、名前付きの枠を1回だけ表示します。
 
 使用率を返さず、リセット時刻だけを返すwindowもあります。この場合は**Usage unknown**として表示し、
 0%、100%、警告のいずれとしても扱いません。Antigravity内部protocolは変更される可能性があり、

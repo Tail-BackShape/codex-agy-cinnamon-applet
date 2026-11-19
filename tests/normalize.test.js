@@ -63,6 +63,42 @@ test("normalizes Devin daily and weekly quota windows", () => {
   assert.equal(result.record.summaryUsedPercent, 41);
 });
 
+test("reads CodexBar slot labels while preserving explicit window titles and legacy fallbacks", () => {
+  const result = Normalize.normalizeProviderPayload({
+    provider: "codex",
+    rateWindowLabels: { primary: " Session ", secondary: "Weekly", tertiary: " " },
+    usage: {
+      primary: { usedPercent: 12 },
+      secondary: { title: "Custom weekly quota", usedPercent: 24 },
+      tertiary: { usedPercent: 32 }
+    }
+  }, "codex");
+  assert.deepEqual(result.record.windows.map((window) => window.label),
+    ["Session", "Custom weekly quota", "Additional quota"]);
+});
+
+test("shows Antigravity summary buckets once and retains unmatched fixed slots", () => {
+  const session = { usedPercent: 0, windowMinutes: 300, resetsAt: "2030-03-17T17:46:40Z" };
+  const result = Normalize.normalizeProviderPayload({
+    provider: "antigravity",
+    rateWindowLabels: { primary: "Gemini Models", secondary: "Claude and GPT" },
+    usage: {
+      primary: session,
+      secondary: { ...session, resetsAt: "2030-03-17T18:46:40Z" },
+      extraRateWindows: [
+        { id: "antigravity-quota-summary-gemini-5h", title: "Gemini 5-hour", window: session },
+        { id: "antigravity-quota-summary-gemini-weekly", title: "Gemini weekly",
+          window: { usedPercent: 82, windowMinutes: 10080 } },
+        { id: "antigravity-quota-summary-3p-5h", title: "Claude/GPT 5-hour",
+          usageKnown: false, window: session }
+      ]
+    }
+  }, "antigravity");
+  assert.deepEqual(result.record.windows.map((window) => window.label),
+    ["Claude and GPT", "Gemini 5-hour", "Gemini weekly", "Claude/GPT 5-hour"]);
+  assert.equal(result.record.summaryUsedPercent, 82);
+});
+
 test("reads nested named windows, removes duplicates, and selects worst known usage", () => {
   const result = Normalize.parseProviderJson(fixture("antigravity-nested-full.synthetic.json"), "antigravity");
   assert.equal(result.ok, true);

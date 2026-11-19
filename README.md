@@ -13,7 +13,7 @@ _Illustrative preview rendered from sanitized fixture values; it contains no acc
 ## Features
 
 - Compact panel text for Codex, Antigravity, and Devin, with used or remaining percentages
-- Every quota window returned by CodexBar, including named model groups and reset times
+- Quota windows with CodexBar's labels, including named model groups and reset times
 - Worst-known-window summary instead of assuming `usage.primary` is representative
 - Correct distinction between 0%, unknown usage, stale data, and initial errors
 - Independent provider failures, last-known-good values, manual refresh, and a 25-second timeout
@@ -33,6 +33,8 @@ _Illustrative preview rendered from sanitized fixture values; it contains no acc
 For Devin on Linux, use CodexBar v0.60.0 or newer. Download release artifacts only from the
 [official release page](https://github.com/steipete/CodexBar/releases) and verify the archive
 against its adjacent SHA256 file before installing it.
+
+Codex, Antigravity, and Devin usage retrieval was verified with CodexBar CLI v0.84.0 on Linux.
 
 Confirm the backend before installing the applet:
 
@@ -58,7 +60,8 @@ From this checkout:
 ```
 
 Then open **System Settings -> Applets**, select **Codex, Antigravity & Devin Usage**, and add it to the
-panel. Remove and re-add the applet or restart Cinnamon after updating its JavaScript or CSS.
+panel. Restart Cinnamon after updating the applet. Cinnamon 6.6.9 can keep a cached JavaScript
+module when only the applet is reloaded.
 
 The installer creates only this symlink:
 
@@ -120,6 +123,9 @@ CodexBar owns provider detection, authentication, TLS, and all Antigravity proto
 OAuth. Local acquisition may require the Antigravity app or `agy` to be available. OAuth can
 identify an account while Google still declines to return quota limits; this is shown as
 **Signed in; limits unavailable**.
+
+For Antigravity quota summaries, named buckets such as **Gemini 5-hour** and **Gemini weekly**
+are shown once, even when CodexBar also returns them as representative slots.
 
 Some windows expose a reset time without a usage percentage. They remain visible as **Usage
 unknown** and never count as 0%, 100%, or a warning. The internal Antigravity protocol can change;
